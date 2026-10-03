@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "name": "Pill Reminder",
+  "description": "Daily medication tracker with taken check-off.",
+  "appearance": {
+    "theme_color": "#A78BFA",
+    "icon": {
+      "src": "../icon-mono.png",
+      "type": "monochrome"
+    },
+    "icon_background": {
+      "colors": [
+        "#A78BFA",
+        "#6D5BB5",
+        "#3F3568",
+        "#0B0F14"
+      ],
+      "stops": [
+        0.0,
+        0.33,
+        0.66,
+        1.0
+      ],
+      "inner_glow_color": "#DDD6FE"
+    }
+  }
+}
