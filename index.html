@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="application-name" content="Pill Reminder">
+<meta name="description" content="Daily medication tracker with taken check-off. Glanceable on Meta Ray-Ban Display.">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Pill Reminder</title>
+<style>
+:root{--accent:#A78BFA;--bg:#0B0F14;--card:#161C26;--line:#2A3442;--text:#F3F6FA;--dim:#9AA6B6;}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{display:flex;align-items:center;justify-content:center;min-height:100dvh;background:#000;color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+.app{width:min(480px,100vw - 24px);height:100dvh;max-height:780px;display:flex;flex-direction:column;padding:16px 14px 12px;background:var(--bg);border-radius:18px;gap:10px}
+h1{font-size:20px;text-align:center}
+.sub{font-size:13px;color:var(--dim);text-align:center}
+.form{display:flex;gap:6px}
+input{min-height:48px;font-size:16px;font-family:inherit;color:var(--text);background:var(--card);border:1px solid var(--line);border-radius:12px;padding:0 12px;-webkit-user-select:text;user-select:text}
+input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+#nameInput{flex:1;min-width:0}
+#timeInput{width:104px}
+button{min-height:48px;font-size:16px;font-family:inherit;color:var(--text);background:var(--card);border:1px solid var(--line);border-radius:12px;cursor:pointer;padding:0 14px}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+button:active{transform:scale(.98)}
+#addBtn{background:var(--accent);border-color:var(--accent);color:#101418;font-weight:700}
+.scroll{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:2px}
+.row{display:flex;gap:6px;align-items:stretch}
+.row .tog{flex:1;display:flex;align-items:center;gap:10px;padding:6px 12px;text-align:left}
+.row .tog .time{font-size:14px;color:var(--accent);font-weight:700;min-width:52px}
+.row .tog .name{font-size:17px}
+.row .tog.taken .name{text-decoration:line-through;color:var(--dim)}
+.row .tog.taken{opacity:.65}
+.row .del{flex:0 0 52px;font-size:18px;color:#F87171}
+.empty{text-align:center;color:var(--dim);font-size:14px;padding:20px 0}
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>&#x1F48A; Pill Reminder</h1>
+  <div class="sub" id="dateLine">Today</div>
+  <div class="form">
+    <input id="nameInput" data-focusable type="text" placeholder="Medication name" autocomplete="off">
+    <input id="timeInput" data-focusable type="time" value="08:00">
+    <button id="addBtn" data-focusable>Add</button>
+  </div>
+  <div class="scroll" id="list"></div>
+</div>
+<script>
+(function(){
+"use strict";
+var KEY="pill-reminder-v1";
+function load(){
+  try{
+    var s=localStorage.getItem(KEY);
+    if(s){ var o=JSON.parse(s); if(o&&Array.isArray(o.meds)) return {meds:o.meds,taken:o.taken||{}}; }
+  }catch(e){}
+  return {meds:[],taken:{}};
+}
+function save(){ try{ localStorage.setItem(KEY,JSON.stringify(state)); }catch(e){} }
+function dateKey(d){
+  d=d||new Date();
+  var m=("0"+(d.getMonth()+1)).slice(-2);
+  var day=("0"+d.getDate()).slice(-2);
+  return d.getFullYear()+"-"+m+"-"+day;
+}
+var state=load();
+var listEl=document.getElementById("list");
+var nameInput=document.getElementById("nameInput");
+var timeInput=document.getElementById("timeInput");
+var focusables=[];
+var focusPos=0;
+
+function isTaken(name){
+  var arr=state.taken[dateKey()]||[];
+  return arr.indexOf(name)>=0;
+}
+function toggleTaken(name){
+  var k=dateKey();
+  var arr=state.taken[k]||[];
+  var i=arr.indexOf(name);
+  if(i>=0) arr.splice(i,1); else arr.push(name);
+  state.taken[k]=arr;
+  save(); render();
+}
+function addMed(){
+  var name=nameInput.value.trim();
+  var time=timeInput.value||"08:00";
+  if(!name) return;
+  state.meds.push({name:name,time:time});
+  save();
+  nameInput.value="";
+  render();
+  nameInput.focus();
+}
+function delMed(name){
+  state.meds=state.meds.filter(function(m){ return m.name!==name; });
+  Object.keys(state.taken).forEach(function(k){
+    state.taken[k]=state.taken[k].filter(function(n){ return n!==name; });
+  });
+  save(); render();
+}
+function render(){
+  var k=dateKey();
+  try{ document.getElementById("dateLine").textContent="Today \u00B7 "+k; }catch(e){}
+  var meds=state.meds.slice().sort(function(a,b){ return a.time<b.time?-1:(a.time>b.time?1:0); });
+  listEl.innerHTML="";
+  if(!meds.length){
+    var d=document.createElement("div"); d.className="empty"; d.textContent="No medications yet. Add one above.";
+    listEl.appendChild(d);
+  }
+  meds.forEach(function(m){
+    var row=document.createElement("div"); row.className="row";
+    var tog=document.createElement("button");
+    tog.className="tog"+(isTaken(m.name)?" taken":"");
+    tog.setAttribute("data-focusable","");
+    var check=document.createElement("span"); check.textContent=isTaken(m.name)?"\u2713 ":"";
+    var tm=document.createElement("span"); tm.className="time"; tm.textContent=m.time;
+    var nm=document.createElement("span"); nm.className="name"; nm.textContent=m.name;
+    tog.appendChild(check); tog.appendChild(tm); tog.appendChild(nm);
+    tog.addEventListener("click",function(){ toggleTaken(m.name); });
+    var del=document.createElement("button");
+    del.className="del"; del.textContent="\u2715"; del.setAttribute("data-focusable","");
+    del.setAttribute("aria-label","Delete "+m.name);
+    del.addEventListener("click",function(){ delMed(m.name); });
+    row.appendChild(tog); row.appendChild(del);
+    listEl.appendChild(row);
+  });
+  refreshFocusables();
+}
+function refreshFocusables(){
+  focusables=Array.prototype.slice.call(document.querySelectorAll("[data-focusable]"));
+}
+function moveFocus(d){
+  if(!focusables.length) return;
+  focusPos=((focusPos+d)%focusables.length+focusables.length)%focusables.length;
+  focusables[focusPos].focus();
+}
+document.getElementById("addBtn").addEventListener("click",addMed);
+nameInput.addEventListener("keydown",function(e){ if(e.key==="Enter"){ e.preventDefault(); addMed(); } });
+document.addEventListener("keydown",function(e){
+  if(e.target===nameInput||e.target===timeInput) return;
+  if(e.key==="ArrowRight"){ e.preventDefault(); moveFocus(1); }
+  else if(e.key==="ArrowLeft"){ e.preventDefault(); moveFocus(-1); }
+  else if(e.key==="ArrowDown"){ e.preventDefault(); moveFocus(1); }
+  else if(e.key==="ArrowUp"){ e.preventDefault(); moveFocus(-1); }
+});
+document.addEventListener("focusin",function(e){
+  var i=focusables.indexOf(e.target);
+  if(i>=0) focusPos=i;
+});
+render();
+})();
+</script>
+</body>
+</html>
